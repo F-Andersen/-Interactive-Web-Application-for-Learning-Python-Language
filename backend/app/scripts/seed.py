@@ -79,6 +79,72 @@ def create_course_bundle(db: Session, admin: User, title: str, description: str,
                     )
 
 
+def fill_empty_courses(db: Session) -> None:
+    empty_courses = (
+        db.query(Course)
+        .outerjoin(Module, Module.course_id == Course.id)
+        .filter(Module.id.is_(None))
+        .all()
+    )
+    for course in empty_courses:
+        if course.title.strip().lower() in {"test", "тест"}:
+            course.title = "Практичний тестовий курс Python"
+            course.description = "Короткий курс для перевірки базових навичок Python через прості завдання."
+            course.difficulty_level = "beginner"
+            course.publish_status = "published"
+        elif not course.description:
+            course.description = "Автоматично доданий навчальний матеріал для повного наповнення курсу."
+
+        module = Module(
+            course_id=course.id,
+            title="Базова практика",
+            description="Модуль із короткою теорією та завданнями для перевірки синтаксису Python.",
+            order_index=1,
+        )
+        db.add(module)
+        db.flush()
+
+        lesson = Lesson(
+            module_id=module.id,
+            title="Вивід і прості обчислення",
+            content=(
+                "У Python функція `print()` виводить результат у консоль. "
+                "Для обчислень можна використовувати арифметичні оператори `+`, `-`, `*`, `/`. "
+                "Цей урок перевіряє, чи студент уміє написати коротку програму і отримати точний вивід."
+            ),
+            order_index=1,
+        )
+        db.add(lesson)
+        db.flush()
+
+        hello_task = Task(
+            lesson_id=lesson.id,
+            title="Контрольний Hello",
+            statement="Виведіть рядок Python ready.",
+            difficulty="easy",
+            starter_code='print("")',
+            order_index=1,
+        )
+        add_task = Task(
+            lesson_id=lesson.id,
+            title="Додавання чисел",
+            statement="Зчитайте два цілі числа і виведіть їх суму.",
+            difficulty="easy",
+            starter_code="a = int(input())\nb = int(input())\nprint()\n",
+            order_index=2,
+        )
+        db.add_all([hello_task, add_task])
+        db.flush()
+        db.add_all(
+            [
+                TestCase(task_id=hello_task.id, input_data="", expected_output="Python ready", is_hidden=False, order_index=1),
+                TestCase(task_id=hello_task.id, input_data="", expected_output="Python ready", is_hidden=True, order_index=2),
+                TestCase(task_id=add_task.id, input_data="2\n8\n", expected_output="10", is_hidden=False, order_index=1),
+                TestCase(task_id=add_task.id, input_data="-5\n12\n", expected_output="7", is_hidden=True, order_index=2),
+            ]
+        )
+
+
 def seed() -> None:
     db = SessionLocal()
     try:
@@ -453,6 +519,8 @@ def seed() -> None:
                 },
             ],
         )
+
+        fill_empty_courses(db)
 
         db.commit()
         print("Seed completed")
