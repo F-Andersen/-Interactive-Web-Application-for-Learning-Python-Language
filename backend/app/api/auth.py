@@ -28,7 +28,7 @@ def register(payload: UserRegister, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
-    return db.query(User).options(joinedload(User.role)).get(user.id)
+    return db.get(User, user.id, options=[joinedload(User.role)])
 
 
 @router.post("/login", response_model=Token)
